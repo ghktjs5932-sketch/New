@@ -1,21 +1,32 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Rocket, Trophy, Play, RotateCcw, Timer, BookOpen, CheckCircle } from "lucide-react";
+import { Rocket, Trophy, Play, RotateCcw, Timer, BookOpen, CheckCircle, ArrowRight } from "lucide-react";
 import { supabase, getUserId } from "@/lib/supabase";
+
+type ReviewStep = {
+  title: string;
+  options: string[];
+  answer: string;
+};
 
 type Problem = {
   question: string;
   answer: string;
   options: string[];
-  reviewOptions: string[]; // 4 step-by-step solutions for review
+  reviewSteps: ReviewStep[];
+};
+
+const shuffle = (array: string[]) => {
+  const newArray = [...array];
+  return newArray.sort(() => Math.random() - 0.5);
 };
 
 const generateProblems = (): Problem[] => {
   const problems: Problem[] = [];
   
   for (let i = 0; i < 10; i++) {
-    const isWordProblem = Math.random() > 0.5; // 50% chance
+    const isWordProblem = Math.random() > 0.5;
     
     if (isWordProblem) {
       const wpType = Math.floor(Math.random() * 3);
@@ -37,34 +48,42 @@ const generateProblems = (): Problem[] => {
            const fakeAns = correctAns + (offset === 0 ? 3 : offset);
            if (fakeAns > 0) optionsSet.add(`${fakeAns}개월 후`);
         }
-        const options = Array.from(optionsSet);
-        options.sort(() => Math.random() - 0.5);
+        const options = shuffle(Array.from(optionsSet));
 
-        // Step-by-step
-        const correctReview = `[올바른 풀이]
-1. 부등식 세우기: ${c} + ${d}x > ${a} + ${b}x
-2. 이항하여 정리: ${d - b}x > ${a - c}
-3. 양변 나누기: x > ${ansX}
-따라서 정답은 ${correctAns}개월 후`;
+        const reviewSteps: ReviewStep[] = [
+          {
+            title: "1단계. 문제의 조건에 맞게 올바른 부등식을 세워보세요.",
+            answer: `${c} + ${d}x > ${a} + ${b}x`,
+            options: shuffle([
+              `${c} + ${d}x > ${a} + ${b}x`,
+              `${c} + ${d}x < ${a} + ${b}x`,
+              `${a} + ${d}x > ${c} + ${b}x`,
+              `${a} + ${b}x > ${c} + ${d}x`
+            ])
+          },
+          {
+            title: "2단계. x항은 좌변으로, 상수항은 우변으로 이항하여 정리해 보세요.",
+            answer: `${d - b}x > ${a - c}`,
+            options: shuffle([
+              `${d - b}x > ${a - c}`,
+              `${d - b}x < ${a - c}`,
+              `${d + b}x > ${a + c}`,
+              `${d - b}x > ${c - a}`
+            ])
+          },
+          {
+            title: "3단계. 양변을 나누어 x의 범위를 구하세요.",
+            answer: `x > ${ansX}`,
+            options: shuffle([
+              `x > ${ansX}`,
+              `x < ${ansX}`,
+              `x > ${((a+c)/(d+b)).toFixed(1)}`,
+              `x > ${((c-a)/(d-b)).toFixed(1)}`
+            ])
+          }
+        ];
 
-        const fakeReview1 = `[틀린 풀이 - 부등호 오류]
-1. 부등식 세우기: ${c} + ${d}x < ${a} + ${b}x
-2. 이항하여 정리: ${d - b}x < ${a - c}
-3. 양변 나누기: x < ${ansX}`;
-
-        const fakeReview2 = `[틀린 풀이 - 이항 실수]
-1. 부등식 세우기: ${c} + ${d}x > ${a} + ${b}x
-2. 이항하여 정리: ${d + b}x > ${a + c}
-3. 양변 나누기: x > ${((a+c)/(d+b)).toFixed(1)}`;
-
-        const fakeReview3 = `[틀린 풀이 - 초기값 반대]
-1. 부등식 세우기: ${a} + ${d}x > ${c} + ${b}x
-2. 이항하여 정리: ${d - b}x > ${c - a}
-3. 양변 나누기: x > ${((c-a)/(d-b)).toFixed(1)}`;
-
-        const reviewOptions = [correctReview, fakeReview1, fakeReview2, fakeReview3].sort(() => Math.random() - 0.5);
-
-        problems.push({ question, answer: `${correctAns}개월 후`, options, reviewOptions });
+        problems.push({ question, answer: `${correctAns}개월 후`, options, reviewSteps });
         
       } else if (wpType === 1) {
         // Purchasing problem
@@ -83,34 +102,42 @@ const generateProblems = (): Problem[] => {
            const fakeAns = correctAns + (offset === 0 ? 3 : offset);
            if (fakeAns > 0) optionsSet.add(`${fakeAns}개`);
         }
-        const options = Array.from(optionsSet);
-        options.sort(() => Math.random() - 0.5);
+        const options = shuffle(Array.from(optionsSet));
 
-        const correctReview = `[올바른 풀이]
-과자의 개수를 x라 하면 아이스크림은 (${totalItems} - x)개
-1. 부등식 세우기: ${priceB}x + ${priceA}(${totalItems} - x) <= ${budget}
-2. 전개 및 이항: ${priceB - priceA}x <= ${budget - priceA * totalItems}
-3. 양변 나누기: x <= ${correctAns}
-따라서 정답은 ${correctAns}개`;
+        const reviewSteps: ReviewStep[] = [
+          {
+            title: `1단계. 과자의 개수를 x라 할 때, 올바른 부등식을 세워보세요. (아이스크림은 ${totalItems}-x개)`,
+            answer: `${priceB}x + ${priceA}(${totalItems} - x) <= ${budget}`,
+            options: shuffle([
+              `${priceB}x + ${priceA}(${totalItems} - x) <= ${budget}`,
+              `${priceB}x + ${priceA}(${totalItems} - x) >= ${budget}`,
+              `${priceA}x + ${priceB}(${totalItems} - x) <= ${budget}`,
+              `${priceB}x + ${priceA * totalItems} - x <= ${budget}`
+            ])
+          },
+          {
+            title: "2단계. 괄호를 풀고 이항하여 식을 간단히 정리하세요.",
+            answer: `${priceB - priceA}x <= ${budget - priceA * totalItems}`,
+            options: shuffle([
+              `${priceB - priceA}x <= ${budget - priceA * totalItems}`,
+              `${priceB - priceA}x >= ${budget - priceA * totalItems}`,
+              `${priceA - priceB}x <= ${budget - priceB * totalItems}`,
+              `${priceB - 1}x <= ${budget - priceA * totalItems}`
+            ])
+          },
+          {
+            title: "3단계. 양변을 나누어 x의 범위를 구하세요.",
+            answer: `x <= ${correctAns}`,
+            options: shuffle([
+              `x <= ${correctAns}`,
+              `x >= ${correctAns}`,
+              `x >= ${((priceB * totalItems - budget) / (priceB - priceA)).toFixed(1)}`,
+              `x <= ${((budget - priceA * totalItems) / (priceB - 1)).toFixed(1)}`
+            ])
+          }
+        ];
 
-        const fakeReview1 = `[틀린 풀이 - 부등호 방향 반대]
-1. 부등식 세우기: ${priceB}x + ${priceA}(${totalItems} - x) >= ${budget}
-2. 전개 및 이항: ${priceB - priceA}x >= ${budget - priceA * totalItems}
-3. 양변 나누기: x >= ${correctAns}`;
-
-        const fakeReview2 = `[틀린 풀이 - 가격 적용 반대]
-1. 부등식 세우기: ${priceA}x + ${priceB}(${totalItems} - x) <= ${budget}
-2. 전개 및 이항: ${priceA - priceB}x <= ${budget - priceB * totalItems}
-3. 양변 나누기 (부호반전): x >= ${(priceB * totalItems - budget) / (priceB - priceA)}`;
-
-        const fakeReview3 = `[틀린 풀이 - 분배법칙 실수]
-1. 부등식 세우기: ${priceB}x + ${priceA * totalItems} - x <= ${budget}
-2. 이항: ${priceB - 1}x <= ${budget - priceA * totalItems}
-3. 양변 나누기: x <= ${((budget - priceA * totalItems) / (priceB - 1)).toFixed(1)}`;
-
-        const reviewOptions = [correctReview, fakeReview1, fakeReview2, fakeReview3].sort(() => Math.random() - 0.5);
-
-        problems.push({ question, answer: `${correctAns}개`, options, reviewOptions });
+        problems.push({ question, answer: `${correctAns}개`, options, reviewSteps });
         
       } else {
         // Distance problem
@@ -129,33 +156,42 @@ const generateProblems = (): Problem[] => {
            const fakeAns = correctAns + (Math.floor(Math.random() * 5) - 2) * 0.5;
            if (fakeAns > 0 && !optionsSet.has(`${fakeAns}km`)) optionsSet.add(`${fakeAns}km`);
         }
-        const options = Array.from(optionsSet);
-        options.sort(() => Math.random() - 0.5);
+        const options = shuffle(Array.from(optionsSet));
 
-        const correctReview = `[올바른 풀이]
-거리를 x km라 하면
-1. 부등식 세우기: x/${speedGo} + x/${speedBack} <= ${timeLimitStr}
-2. 양변에 ${speedGo * speedBack} 곱하기: ${speedBack}x + ${speedGo}x <= ${timeLimit * speedGo * speedBack}
-3. 정리 후 나누기: ${speedBack + speedGo}x <= ${timeLimit * speedGo * speedBack} -> x <= ${correctAns}
-따라서 정답은 ${correctAns}km`;
+        const reviewSteps: ReviewStep[] = [
+          {
+            title: "1단계. 거리를 x km라 할 때, 시간에 대한 부등식을 세워보세요. (시간 = 거리/속력)",
+            answer: `x/${speedGo} + x/${speedBack} <= ${timeLimitStr}`,
+            options: shuffle([
+              `x/${speedGo} + x/${speedBack} <= ${timeLimitStr}`,
+              `x/${speedGo} + x/${speedBack} >= ${timeLimitStr}`,
+              `x/(${speedGo} + ${speedBack}) <= ${timeLimitStr}`,
+              `x/${speedBack} - x/${speedGo} <= ${timeLimitStr}`
+            ])
+          },
+          {
+            title: `2단계. 양변에 최소공배수(${speedGo * speedBack})를 곱하여 분모를 없애고 정리하세요.`,
+            answer: `${speedBack + speedGo}x <= ${timeLimit * speedGo * speedBack}`,
+            options: shuffle([
+              `${speedBack + speedGo}x <= ${timeLimit * speedGo * speedBack}`,
+              `x <= ${timeLimit * (speedGo + speedBack)}`,
+              `${speedBack + speedGo}x >= ${timeLimit * speedGo * speedBack}`,
+              `${speedGo - speedBack}x <= ${timeLimit * speedGo * speedBack}`
+            ])
+          },
+          {
+            title: "3단계. 양변을 나누어 x의 범위를 구하세요.",
+            answer: `x <= ${correctAns}`,
+            options: shuffle([
+              `x <= ${correctAns}`,
+              `x >= ${correctAns}`,
+              `x <= ${((timeLimit * speedGo * speedBack) / (speedGo - speedBack)).toFixed(1)}`,
+              `x <= ${(timeLimit * (speedGo + speedBack)).toFixed(1)}`
+            ])
+          }
+        ];
 
-        const fakeReview1 = `[틀린 풀이 - 속력의 덧셈오류]
-1. 부등식 세우기: x/(${speedGo} + ${speedBack}) <= ${timeLimitStr}
-2. 양변 곱하기: x <= ${timeLimit * (speedGo + speedBack)}`;
-
-        const fakeReview2 = `[틀린 풀이 - 부등호 반대]
-1. 부등식 세우기: x/${speedGo} + x/${speedBack} >= ${timeLimitStr}
-2. 양변 곱하기: ${speedBack + speedGo}x >= ${timeLimit * speedGo * speedBack}
-3. 정리 후 나누기: x >= ${correctAns}`;
-
-        const fakeReview3 = `[틀린 풀이 - 거리의 차]
-1. 부등식 세우기: x/${speedBack} - x/${speedGo} <= ${timeLimitStr}
-2. 양변 곱하기: ${speedGo - speedBack}x <= ${timeLimit * speedGo * speedBack}
-3. 정리 후 나누기: x <= ${timeLimit * speedGo * speedBack / (speedGo - speedBack)}`;
-
-        const reviewOptions = [correctReview, fakeReview1, fakeReview2, fakeReview3].sort(() => Math.random() - 0.5);
-
-        problems.push({ question, answer: `${correctAns}km`, options, reviewOptions });
+        problems.push({ question, answer: `${correctAns}km`, options, reviewSteps });
       }
     } else {
       // Basic linear inequality
@@ -199,35 +235,34 @@ const generateProblems = (): Problem[] => {
         }
         distractors.add(`x ${fakeDir} ${fakeX}`);
       }
+      const options = shuffle(Array.from(distractors));
       
-      const options = Array.from(distractors);
-      options.sort(() => Math.random() - 0.5);
-      
-      // Step-by-step
       const op1 = isGreater ? '>' : '<';
-      const op1Rev = isGreater ? '<' : '>';
       
-      const correctReview = `[올바른 풀이]
-1. 상수항 이항: ${a}x ${op1} ${c} ${b > 0 ? '-' : '+'} ${Math.abs(b)}
-2. 계산: ${a}x ${op1} ${c - b}
-3. 양변 나누기${a < 0 ? ' (부호반전)' : ''}: x ${ansDir} ${x}`;
+      const reviewSteps: ReviewStep[] = [
+        {
+          title: "1단계. 상수항을 우변으로 이항하여 식을 정리하세요.",
+          answer: `${a}x ${op1} ${c - b}`,
+          options: shuffle([
+            `${a}x ${op1} ${c - b}`,
+            `${a}x ${op1} ${c + b}`,
+            `${-a}x ${op1} ${c - b}`,
+            `${a}x ${op1 === '>' ? '<' : '>'} ${c - b}`
+          ])
+        },
+        {
+          title: `2단계. 양변을 x의 계수(${a})로 나누어 해를 구하세요. (음수로 나누면 부등호 방향이 바뀝니다)`,
+          answer: `x ${ansDir} ${x}`,
+          options: shuffle([
+            `x ${ansDir} ${x}`,
+            `x ${ansDir === '>' ? '<' : '>'} ${x}`,
+            `x ${ansDir} ${((c + b)/a).toFixed(1)}`,
+            `x ${ansDir === '>' ? '<' : '>'} ${((c + b)/a).toFixed(1)}`
+          ])
+        }
+      ];
 
-      const fakeReview1 = `[틀린 풀이 - 부호반전 실수]
-1. 상수항 이항: ${a}x ${op1} ${c - b}
-2. 양변 나누기${a < 0 ? ' (부호유지)' : ' (부호반전)'}: x ${ansDir === '>' ? '<' : '>'} ${x}`;
-
-      const fakeReview2 = `[틀린 풀이 - 이항 실수]
-1. 상수항 이항: ${a}x ${op1} ${c} ${b > 0 ? '+' : '-'} ${Math.abs(b)}
-2. 계산: ${a}x ${op1} ${c + b}
-3. 양변 나누기: x ${ansDir} ${(c + b)/a}`;
-
-      const fakeReview3 = `[틀린 풀이 - 부호반전 & 이항 실수]
-1. 상수항 이항: ${a}x ${op1} ${c + b}
-2. 양변 나누기: x ${ansDir === '>' ? '<' : '>'} ${(c + b)/a}`;
-
-      const reviewOptions = [correctReview, fakeReview1, fakeReview2, fakeReview3].sort(() => Math.random() - 0.5);
-
-      problems.push({ question, answer: correctAnswer, options, reviewOptions });
+      problems.push({ question, answer: correctAnswer, options, reviewSteps });
     }
   }
   return problems;
@@ -254,12 +289,15 @@ export default function Home() {
     question: string;
     correct_answer: string;
     wrong_answer_submitted: string;
-    review_options: string[];
+    review_steps: ReviewStep[];
   }[]>([]);
 
   // Supabase states
   const [reviewList, setReviewList] = useState<WrongAnswerLog[]>([]);
   const [currentReviewItem, setCurrentReviewItem] = useState<WrongAnswerLog | null>(null);
+  const [currentReviewSteps, setCurrentReviewSteps] = useState<ReviewStep[]>([]);
+  const [reviewStepIndex, setReviewStepIndex] = useState(0);
+  const [reviewMistakes, setReviewMistakes] = useState(0);
 
   const startGame = () => {
     setProblems(generateProblems());
@@ -295,37 +333,58 @@ export default function Home() {
   };
 
   const startReviewItem = (item: WrongAnswerLog) => {
-    setCurrentReviewItem(item);
-    setFeedback(null);
-    setGameState("review_playing");
+    try {
+      const parsedSteps = JSON.parse(item.review_options || "[]");
+      // Check if it's legacy data (array of strings instead of ReviewStep objects)
+      if (parsedSteps.length > 0 && typeof parsedSteps[0] === 'string') {
+        alert("이전 버전의 데이터는 새로운 단계별 복습 모드를 지원하지 않습니다. 새로 게임을 플레이해주세요.");
+        return;
+      }
+      setCurrentReviewSteps(parsedSteps as ReviewStep[]);
+      setCurrentReviewItem(item);
+      setReviewStepIndex(0);
+      setReviewMistakes(0);
+      setFeedback(null);
+      setGameState("review_playing");
+    } catch (e) {
+      alert("문제 데이터를 해석하는 중 오류가 발생했습니다.");
+    }
   };
 
   const submitReviewAnswer = async (selectedOption: string) => {
     if (feedback !== null || !currentReviewItem) return;
 
-    const isCorrect = selectedOption.includes("[올바른 풀이]");
+    const currentStep = currentReviewSteps[reviewStepIndex];
+    const isCorrect = selectedOption === currentStep.answer;
     
     if (isCorrect) {
       setFeedback("correct");
+      setTimeout(async () => {
+        setFeedback(null);
+        if (reviewStepIndex + 1 < currentReviewSteps.length) {
+          setReviewStepIndex(c => c + 1);
+        } else {
+          // Review complete
+          try {
+            await supabase.from('review_logs').insert({
+              wrong_answer_id: currentReviewItem.id,
+              is_correct: reviewMistakes === 0 // Perfect review if 0 mistakes
+            });
+            await supabase.from('wrong_answers').update({ is_reviewed: true }).eq('id', currentReviewItem.id);
+          } catch (e) {
+            console.error(e);
+          }
+          setReviewList(prev => prev.filter(r => r.id !== currentReviewItem.id));
+          setGameState("review_list");
+        }
+      }, 1000);
     } else {
       setFeedback("wrong");
+      setReviewMistakes(m => m + 1);
+      setTimeout(() => {
+        setFeedback(null); // allow them to try again
+      }, 1500);
     }
-
-    try {
-      await supabase.from('review_logs').insert({
-        wrong_answer_id: currentReviewItem.id,
-        is_correct: isCorrect
-      });
-      await supabase.from('wrong_answers').update({ is_reviewed: true }).eq('id', currentReviewItem.id);
-    } catch (e) {
-      console.error(e);
-    }
-
-    setTimeout(() => {
-      setFeedback(null);
-      setReviewList(prev => prev.filter(r => r.id !== currentReviewItem.id));
-      setGameState("review_list");
-    }, 1500);
   };
 
   const submitAnswer = useCallback((selectedOption: string | null) => {
@@ -339,7 +398,7 @@ export default function Home() {
         question: currentProb.question,
         correct_answer: currentProb.answer,
         wrong_answer_submitted: "시간 초과",
-        review_options: currentProb.reviewOptions
+        review_steps: currentProb.reviewSteps
       }]);
     } else {
       const isCorrect = selectedOption === currentProb.answer;
@@ -352,7 +411,7 @@ export default function Home() {
           question: currentProb.question,
           correct_answer: currentProb.answer,
           wrong_answer_submitted: selectedOption,
-          review_options: currentProb.reviewOptions
+          review_steps: currentProb.reviewSteps
         }]);
       }
     }
@@ -367,7 +426,6 @@ export default function Home() {
     }, 1000);
   }, [currentIndex, problems, feedback]);
 
-  // Handle Game End - Save to Supabase
   useEffect(() => {
     if (gameState === "end" && wrongAnswersThisSession.length > 0) {
       const saveWrongAnswers = async () => {
@@ -378,10 +436,7 @@ export default function Home() {
             question: w.question,
             correct_answer: w.correct_answer,
             wrong_answer_submitted: w.wrong_answer_submitted,
-            // storing review options as stringified json via a clever hack or extra column.
-            // Wait, we didn't add review_options to DB schema initially!
-            // Let's add it to wrong_answers table directly as text. I will update the schema mentally and explicitly.
-            review_options: JSON.stringify(w.review_options),
+            review_options: JSON.stringify(w.review_steps),
             is_reviewed: false
           }));
           await supabase.from('wrong_answers').insert(inserts);
@@ -390,7 +445,6 @@ export default function Home() {
         }
       };
       saveWrongAnswers();
-      // Clear array so we don't save twice
       setWrongAnswersThisSession([]);
     }
   }, [gameState, wrongAnswersThisSession]);
@@ -441,11 +495,11 @@ export default function Home() {
             </p>
             
             <div className="pt-8 flex flex-col sm:flex-row items-center justify-center gap-6">
-              <button type="button" onClick={startGame} className="arcade-btn group flex items-center gap-2 w-full sm:w-auto">
+              <button type="button" onClick={startGame} className="arcade-btn group flex items-center justify-center gap-2 w-full sm:w-auto">
                 <Rocket size={20} className="group-hover:animate-bounce" />
                 <span>START GAME</span>
               </button>
-              <button type="button" onClick={loadReviewList} className="arcade-btn arcade-btn-yellow group flex items-center gap-2 w-full sm:w-auto">
+              <button type="button" onClick={loadReviewList} className="arcade-btn arcade-btn-yellow group flex items-center justify-center gap-2 w-full sm:w-auto">
                 <BookOpen size={20} className="group-hover:animate-bounce" />
                 <span>오답 복습하기</span>
               </button>
@@ -477,66 +531,76 @@ export default function Home() {
           </div>
         )}
 
-        {gameState === "review_playing" && currentReviewItem && (
+        {gameState === "review_playing" && currentReviewItem && currentReviewSteps.length > 0 && (
           <div className="space-y-8 animate-in fade-in duration-500 text-left">
-            <div className="flex items-center gap-2 text-neon-cyan font-bold tracking-widest uppercase mb-4">
-              <BookOpen size={20} /> Review Mode
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-4">
+              <div className="flex items-center gap-2 text-neon-cyan font-bold tracking-widest uppercase">
+                <BookOpen size={20} /> Review Mode
+              </div>
+              <div className="flex items-center gap-2">
+                {currentReviewSteps.map((_, idx) => (
+                  <div key={idx} className={`h-2 w-8 rounded-full transition-colors duration-500 ${idx < reviewStepIndex ? 'bg-green-400' : idx === reviewStepIndex ? 'bg-neon-cyan animate-pulse' : 'bg-slate-700'}`} />
+                ))}
+              </div>
             </div>
             
-            <h3 className="text-2xl md:text-3xl font-black text-white leading-snug break-keep bg-slate-800/80 p-6 rounded-2xl border border-white/10">
-              {currentReviewItem.question}
-            </h3>
+            <div className="bg-slate-800/40 p-6 rounded-2xl border border-white/5 mb-6">
+              <h3 className="text-xl md:text-2xl font-bold text-slate-300 leading-snug break-keep">
+                {currentReviewItem.question}
+              </h3>
+            </div>
             
-            <p className="text-slate-300 font-medium text-lg text-center my-6">다음 중 가장 올바른 <span className="text-pixel-pink font-bold">풀이 과정</span>을 선택하세요.</p>
+            <div className="bg-neon-cyan/5 border border-neon-cyan/20 p-6 rounded-2xl">
+              <p className="text-white font-black text-xl md:text-2xl mb-6 flex items-start gap-3">
+                <span className="text-neon-cyan text-3xl">Q.</span> 
+                {currentReviewSteps[reviewStepIndex].title}
+              </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {JSON.parse(currentReviewItem.review_options || "[]").map((option: string, idx: number) => {
-                let buttonStyle = "bg-slate-800/80 hover:bg-slate-700 border-white/20 hover:border-neon-cyan";
-                if (feedback) {
-                  if (option.includes("[올바른 풀이]")) {
-                    buttonStyle = "bg-green-500/20 border-green-400 text-green-400";
-                  } else {
-                    buttonStyle = "bg-red-500/10 border-red-500/30 text-slate-500 opacity-50";
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {currentReviewSteps[reviewStepIndex].options.map((option: string, idx: number) => {
+                  let buttonStyle = "bg-slate-800/80 hover:bg-slate-700 border-white/20 hover:border-neon-cyan";
+                  if (feedback) {
+                    if (option === currentReviewSteps[reviewStepIndex].answer) {
+                      buttonStyle = "bg-green-500/20 border-green-400 text-green-400";
+                    } else {
+                      buttonStyle = "bg-slate-800 border-slate-700 text-slate-600 opacity-30";
+                    }
                   }
-                }
-                
-                // Hide the tag [올바른 풀이], [틀린 풀이...] from the user view by replacing it
-                const displayOption = option.replace(/\[.*?\]\n/, '');
-
-                return (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => submitReviewAnswer(option)}
-                    disabled={feedback !== null}
-                    className={`text-left font-mono text-sm md:text-base px-6 py-6 rounded-xl border-2 transition-all whitespace-pre-wrap leading-relaxed ${buttonStyle}`}
-                  >
-                    {displayOption}
-                  </button>
-                );
-              })}
+                  
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => submitReviewAnswer(option)}
+                      disabled={feedback !== null}
+                      className={`text-center font-mono text-lg md:text-xl font-bold px-6 py-6 rounded-xl border-2 transition-all active:scale-95 break-keep ${buttonStyle}`}
+                    >
+                      {option}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             <div className="relative h-12">
               {feedback === "correct" && (
                 <div className="absolute inset-0 flex items-center justify-center z-20">
-                  <span className="text-4xl font-black text-green-400 flex items-center gap-2"><CheckCircle /> 복습 완료!</span>
+                  <span className="text-3xl font-black text-green-400 flex items-center gap-2"><CheckCircle /> {reviewStepIndex + 1 === currentReviewSteps.length ? '복습 완료!' : '정답! 다음 단계로 넘어갑니다.'}</span>
                 </div>
               )}
               {feedback === "wrong" && (
                 <div className="absolute inset-0 flex items-center justify-center z-20">
-                  <span className="text-4xl font-black text-red-500">다시 한 번 생각해보세요!</span>
+                  <span className="text-3xl font-black text-red-500">다시 한 번 생각해보세요!</span>
                 </div>
               )}
             </div>
 
-            <button type="button" onClick={() => setGameState("review_list")} className="text-slate-400 hover:text-white underline underline-offset-4 pt-4 block mx-auto">목록으로 돌아가기</button>
+            <button type="button" onClick={() => setGameState("review_list")} className="text-slate-500 hover:text-white underline underline-offset-4 pt-4 block mx-auto">목록으로 돌아가기 (그만두기)</button>
           </div>
         )}
 
         {gameState === "playing" && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-500">
-            {/* Same Game playing UI as before */}
             <div className="flex items-center justify-between border-b border-white/10 pb-4">
               <span className="text-neon-cyan font-bold tracking-widest uppercase text-xl">
                 Stage {currentIndex + 1} <span className="text-slate-500 text-sm">/ 10</span>
