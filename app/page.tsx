@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { Rocket, Trophy, Play, RotateCcw } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Rocket, Trophy, Play, RotateCcw, Timer } from "lucide-react";
 
 type Problem = {
   question: string;
   answer: string;
+  options: string[];
 };
 
 const generateProblems = (): Problem[] => {
@@ -15,7 +16,7 @@ const generateProblems = (): Problem[] => {
     let a = Math.floor(Math.random() * 5) + 1; // 1 to 5
     if (isNegativeCoef) a = -a;
     const b = Math.floor(Math.random() * 21) - 10; // -10 to 10
-    const x = Math.floor(Math.random() * 11) - 5; // -5 to 5 (the exact boundary point)
+    const x = Math.floor(Math.random() * 11) - 5; // -5 to 5
     
     const c = a * x + b;
     const isGreater = Math.random() > 0.5;
@@ -34,8 +35,33 @@ const generateProblems = (): Problem[] => {
     let ansDir = isGreater ? ">" : "<";
     if (a < 0) ansDir = isGreater ? "<" : ">";
     
-    const answer = `x${ansDir}${x}`;
-    problems.push({ question, answer });
+    const correctAnswer = `x ${ansDir} ${x}`;
+    
+    // Generate 3 distractors
+    const distractors = new Set<string>();
+    while (distractors.size < 3) {
+      const r = Math.random();
+      let fakeDir = ansDir;
+      let fakeX = x;
+      if (r < 0.33) {
+        fakeDir = fakeDir === ">" ? "<" : ">";
+      } else if (r < 0.66) {
+        fakeX = x + (Math.random() > 0.5 ? 1 : -1) * (Math.floor(Math.random() * 3) + 1);
+      } else {
+        fakeDir = fakeDir === ">" ? "<" : ">";
+        fakeX = x + (Math.random() > 0.5 ? 1 : -1) * (Math.floor(Math.random() * 3) + 1);
+      }
+      
+      const distractor = `x ${fakeDir} ${fakeX}`;
+      if (distractor !== correctAnswer) {
+        distractors.add(distractor);
+      }
+    }
+    
+    const options = [correctAnswer, ...Array.from(distractors)];
+    options.sort(() => Math.random() - 0.5); // Shuffle
+    
+    problems.push({ question, answer: correctAnswer, options });
   }
   return problems;
 };
@@ -45,43 +71,56 @@ export default function Home() {
   const [problems, setProblems] = useState<Problem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [score, setScore] = useState(0);
-  const [inputValue, setInputValue] = useState("");
-  const [feedback, setFeedback] = useState<"correct" | "wrong" | null>(null);
+  const [feedback, setFeedback] = useState<"correct" | "wrong" | "timeout" | null>(null);
+  const [timeLeft, setTimeLeft] = useState(20);
 
   const startGame = () => {
     setProblems(generateProblems());
     setCurrentIndex(0);
     setScore(0);
-    setInputValue("");
     setFeedback(null);
+    setTimeLeft(20);
     setGameState("playing");
   };
 
-  const submitAnswer = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!inputValue.trim()) return;
+  const submitAnswer = useCallback((selectedOption: string | null) => {
+    if (feedback !== null) return;
 
-    // Normalize user input (remove all spaces, to lowercase)
-    const normalizedInput = inputValue.replace(/\s+/g, "").toLowerCase();
-    const isCorrect = normalizedInput === problems[currentIndex].answer;
-
-    if (isCorrect) {
-      setScore(s => s + 1);
-      setFeedback("correct");
+    if (selectedOption === null) {
+      setFeedback("timeout");
     } else {
-      setFeedback("wrong");
+      const isCorrect = selectedOption === problems[currentIndex].answer;
+      if (isCorrect) {
+        setScore(s => s + 1);
+        setFeedback("correct");
+      } else {
+        setFeedback("wrong");
+      }
     }
 
     setTimeout(() => {
       setFeedback(null);
-      setInputValue("");
       if (currentIndex + 1 < problems.length) {
         setCurrentIndex(c => c + 1);
+        setTimeLeft(20);
       } else {
         setGameState("end");
       }
     }, 1000);
-  };
+  }, [currentIndex, problems, feedback]);
+
+  useEffect(() => {
+    if (gameState === "playing" && feedback === null) {
+      if (timeLeft === 0) {
+        submitAnswer(null);
+        return;
+      }
+      const timer = setInterval(() => {
+        setTimeLeft(prev => prev - 1);
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [gameState, feedback, timeLeft, submitAnswer]);
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-8 relative z-10 overflow-hidden min-h-screen">
@@ -142,9 +181,14 @@ export default function Home() {
               <span className="text-neon-cyan font-bold tracking-widest uppercase">
                 Stage {currentIndex + 1} <span className="text-slate-500">/ 20</span>
               </span>
-              <span className="text-bright-yellow font-bold flex items-center gap-2">
-                <Trophy size={18} /> Score: {score}
-              </span>
+              <div className="flex items-center gap-6">
+                <span className={`font-black flex items-center gap-2 ${timeLeft <= 5 ? 'text-red-500 animate-pulse' : 'text-pixel-pink'}`}>
+                  <Timer size={18} /> {timeLeft}s
+                </span>
+                <span className="text-bright-yellow font-bold flex items-center gap-2">
+                  <Trophy size={18} /> Score: {score}
+                </span>
+              </div>
             </div>
 
             <div className="py-12 relative">
@@ -158,31 +202,50 @@ export default function Home() {
                   <span className="text-6xl font-black text-red-500 drop-shadow-[0_0_20px_rgba(239,68,68,0.8)] animate-out fade-out zoom-out duration-1000">MISS!</span>
                 </div>
               )}
+              {feedback === "timeout" && (
+                <div className="absolute inset-0 flex items-center justify-center z-20">
+                  <span className="text-6xl font-black text-red-500 drop-shadow-[0_0_20px_rgba(239,68,68,0.8)] animate-out fade-out zoom-out duration-1000">TIME OUT!</span>
+                </div>
+              )}
 
               <h3 className={`text-6xl md:text-8xl font-black text-white tracking-widest drop-shadow-[0_0_15px_rgba(255,255,255,0.4)] transition-opacity ${feedback ? 'opacity-20' : 'opacity-100'}`}>
                 {problems[currentIndex].question}
               </h3>
             </div>
 
-            <form onSubmit={submitAnswer} className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto">
-              <input
-                type="text"
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                disabled={feedback !== null}
-                placeholder="예: x > 3"
-                className="flex-1 bg-slate-950/50 border-2 border-neon-cyan/50 rounded-xl px-6 py-4 text-2xl text-center text-white focus:outline-none focus:border-neon-cyan focus:ring-4 focus:ring-neon-cyan/20 transition-all font-mono"
-                autoFocus
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg mx-auto">
+              {problems[currentIndex].options.map((option, idx) => {
+                let buttonStyle = "bg-slate-800/80 hover:bg-slate-700 border-white/20 hover:border-neon-cyan";
+                
+                // Show correct/wrong colors if feedback is active
+                if (feedback) {
+                  if (option === problems[currentIndex].answer) {
+                    buttonStyle = "bg-green-500/20 border-green-400 text-green-400 shadow-[0_0_15px_rgba(74,222,128,0.3)]";
+                  } else {
+                    buttonStyle = "bg-red-500/10 border-red-500/30 text-slate-500 opacity-50";
+                  }
+                }
+
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => submitAnswer(option)}
+                    disabled={feedback !== null}
+                    className={`font-mono text-2xl font-bold px-6 py-6 rounded-xl border-2 transition-all active:scale-95 ${buttonStyle}`}
+                  >
+                    {option}
+                  </button>
+                );
+              })}
+            </div>
+            
+            <div className="w-full bg-slate-800/50 rounded-full h-2 overflow-hidden mt-6">
+              <div 
+                className={`h-full transition-all duration-1000 linear ${timeLeft <= 5 ? 'bg-red-500' : 'bg-neon-cyan'}`} 
+                style={{ width: `${(timeLeft / 20) * 100}%` }} 
               />
-              <button 
-                type="submit" 
-                disabled={feedback !== null}
-                className="arcade-btn !px-6 !py-4"
-              >
-                <Play size={24} className="fill-current" />
-              </button>
-            </form>
-            <p className="text-sm text-slate-400">키보드로 정답을 입력하고 엔터를 누르세요 (예: <span className="text-neon-cyan">x &gt; 3</span>, <span className="text-pixel-pink">x &lt; -5</span>)</p>
+            </div>
           </div>
         )}
 
