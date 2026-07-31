@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Rocket, Trophy, Play, RotateCcw, Timer, BookOpen, CheckCircle, ArrowRight } from "lucide-react";
 import { supabase, getUserId } from "@/lib/supabase";
 
@@ -299,6 +299,7 @@ export default function Home() {
   const [reviewStepIndex, setReviewStepIndex] = useState(0);
   const [reviewMistakes, setReviewMistakes] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
+  const hasSavedThisSession = useRef(false);
 
   const startGame = () => {
     setProblems(generateProblems());
@@ -307,6 +308,7 @@ export default function Home() {
     setFeedback(null);
     setTimeLeft(600);
     setWrongAnswersThisSession([]);
+    hasSavedThisSession.current = false;
     setGameState("playing");
   };
 
@@ -322,14 +324,40 @@ export default function Home() {
 
       if (error) {
         console.error("Supabase Error:", error);
-        alert("데이터를 불러오는 데 실패했습니다.");
+        if (wrongAnswersThisSession.length > 0) {
+          const fallbackData = wrongAnswersThisSession.map((w, idx) => ({
+            id: `temp-${idx}`,
+            question: w.question,
+            correct_answer: w.correct_answer,
+            wrong_answer_submitted: w.wrong_answer_submitted,
+            review_options: JSON.stringify(w.review_steps),
+            is_reviewed: false
+          }));
+          setReviewList(fallbackData);
+          setGameState("review_list");
+          return;
+        }
+        alert("데이터를 불러오는 데 실패했습니다: " + error.message);
         return;
       }
       setReviewList(data || []);
       setGameState("review_list");
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      alert("데이터를 불러오는 중 오류가 발생했습니다. (Supabase URL 및 Key 확인 필요)");
+      if (wrongAnswersThisSession.length > 0) {
+        const fallbackData = wrongAnswersThisSession.map((w, idx) => ({
+          id: `temp-${idx}`,
+          question: w.question,
+          correct_answer: w.correct_answer,
+          wrong_answer_submitted: w.wrong_answer_submitted,
+          review_options: JSON.stringify(w.review_steps),
+          is_reviewed: false
+        }));
+        setReviewList(fallbackData);
+        setGameState("review_list");
+      } else {
+        alert("오류가 발생했습니다: " + (e.message || "알 수 없는 오류"));
+      }
     }
   };
 
@@ -429,7 +457,8 @@ export default function Home() {
 
   useEffect(() => {
     let isMounted = true;
-    if (gameState === "end" && wrongAnswersThisSession.length > 0) {
+    if (gameState === "end" && wrongAnswersThisSession.length > 0 && !hasSavedThisSession.current) {
+      hasSavedThisSession.current = true;
       const saveWrongAnswers = async () => {
         setIsSaving(true);
         try {
@@ -447,7 +476,6 @@ export default function Home() {
           console.error("Failed to save wrong answers", e);
         } finally {
           if (isMounted) setIsSaving(false);
-          setWrongAnswersThisSession([]);
         }
       };
       saveWrongAnswers();
