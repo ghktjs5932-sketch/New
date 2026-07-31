@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+/* Tailwind legacy directives as requested */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@theme {
+  --color-background: #0f172a;
+  --color-foreground: #f8fafc;
+  --color-neon-cyan: #22d3ee;
+  --color-pixel-pink: #f472b6;
+  --color-bright-yellow: #facc15;
+}
+
+@layer base {
+  :root {
+    --background: #0f172a;
+    --foreground: #f8fafc;
+  }
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+  }
+}
+
+@layer components {
+  /* Arcade Neon 3D Button */
+  .arcade-btn {
+    @apply relative inline-flex items-center justify-center px-8 py-4 font-bold text-lg uppercase tracking-wider text-white transition-transform active:translate-y-1 bg-neon-cyan border-2 border-white rounded-md;
+    box-shadow: 0 6px 0 0 #0891b2, 0 8px 10px rgba(0, 0, 0, 0.4);
+    text-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+  }
+
+  .arcade-btn:hover {
+    @apply brightness-110;
+  }
+
+  .arcade-btn:active {
+    box-shadow: 0 2px 0 0 #0891b2, 0 4px 4px rgba(0, 0, 0, 0.4);
+  }
+
+  /* Variant for Pink */
+  .arcade-btn-pink {
+    @apply bg-pixel-pink;
+    box-shadow: 0 6px 0 0 #be185d, 0 8px 10px rgba(0, 0, 0, 0.4);
+  }
+  .arcade-btn-pink:active {
+    box-shadow: 0 2px 0 0 #be185d, 0 4px 4px rgba(0, 0, 0, 0.4);
+  }
+
+  /* Variant for Yellow */
+  .arcade-btn-yellow {
+    @apply bg-bright-yellow text-slate-900;
+    box-shadow: 0 6px 0 0 #a16207, 0 8px 10px rgba(0, 0, 0, 0.4);
+    text-shadow: none;
+  }
+  .arcade-btn-yellow:active {
+    box-shadow: 0 2px 0 0 #a16207, 0 4px 4px rgba(0, 0, 0, 0.4);
+  }
+}
