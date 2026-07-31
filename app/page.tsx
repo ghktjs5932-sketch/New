@@ -688,8 +688,13 @@ export default function Home() {
                 <RotateCcw size={20} className="group-hover:-rotate-180 transition-transform duration-500" />
                 <span>RESTART GAME</span>
               </button>
-              <button type="button" onClick={() => setGameState("intro")} className="arcade-btn arcade-btn-yellow group flex items-center justify-center gap-2">
-                <BookOpen size={20} />
+              {score < 10 && (
+                <button type="button" onClick={loadReviewList} className="arcade-btn arcade-btn-yellow group flex items-center justify-center gap-2">
+                  <BookOpen size={20} className="group-hover:animate-bounce" />
+                  <span>오답 바로 복습하기</span>
+                </button>
+              )}
+              <button type="button" onClick={() => setGameState("intro")} className="arcade-btn group flex items-center justify-center gap-2">
                 <span>MAIN MENU</span>
               </button>
             </div>
