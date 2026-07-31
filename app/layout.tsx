@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { Gamepad2 } from "lucide-react";
 import "./globals.css";
+import Chatbot from "@/components/Chatbot";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -54,6 +55,8 @@ export default function RootLayout({
         <footer className="border-t border-slate-800 bg-slate-950 py-8 text-center text-slate-500 font-medium">
           <p>© {new Date().getFullYear()} 화선쌤의 즐거운 수학교실. All rights reserved.</p>
         </footer>
+        {/* Chatbot Widget */}
+        <Chatbot />
       </body>
     </html>
   );
