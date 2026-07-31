@@ -32,11 +32,16 @@ export default function RootLayout({
                 화선쌤의 <span className="text-neon-cyan">즐거운</span> 수학교실
               </h1>
             </div>
-            <nav className="hidden md:flex gap-6 font-bold text-slate-300">
-              <a href="#" className="hover:text-neon-cyan transition-colors">홈</a>
-              <a href="#" className="hover:text-pixel-pink transition-colors">강의</a>
-              <a href="#" className="hover:text-bright-yellow transition-colors">게시판</a>
-            </nav>
+            <div className="flex items-center gap-4 md:gap-8">
+              <nav className="hidden md:flex gap-6 font-bold text-slate-300">
+                <a href="#" className="hover:text-neon-cyan transition-colors">홈</a>
+                <a href="#" className="hover:text-pixel-pink transition-colors">강의</a>
+                <a href="#" className="hover:text-bright-yellow transition-colors">게시판</a>
+              </nav>
+              <button type="button" className="px-4 py-2 font-bold text-sm md:text-base bg-neon-cyan text-slate-900 rounded border-2 border-white shadow-[0_4px_0_0_#0891b2,0_5px_5px_rgba(0,0,0,0.3)] hover:brightness-110 active:translate-y-1 active:shadow-[0_1px_0_0_#0891b2,0_2px_2px_rgba(0,0,0,0.3)] transition-all">
+                로그인
+              </button>
+            </div>
           </div>
         </header>
 
