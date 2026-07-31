@@ -298,6 +298,7 @@ export default function Home() {
   const [currentReviewSteps, setCurrentReviewSteps] = useState<ReviewStep[]>([]);
   const [reviewStepIndex, setReviewStepIndex] = useState(0);
   const [reviewMistakes, setReviewMistakes] = useState(0);
+  const [isSaving, setIsSaving] = useState(false);
 
   const startGame = () => {
     setProblems(generateProblems());
@@ -427,8 +428,10 @@ export default function Home() {
   }, [currentIndex, problems, feedback]);
 
   useEffect(() => {
+    let isMounted = true;
     if (gameState === "end" && wrongAnswersThisSession.length > 0) {
       const saveWrongAnswers = async () => {
+        setIsSaving(true);
         try {
           const userId = getUserId();
           const inserts = wrongAnswersThisSession.map(w => ({
@@ -442,11 +445,14 @@ export default function Home() {
           await supabase.from('wrong_answers').insert(inserts);
         } catch (e) {
           console.error("Failed to save wrong answers", e);
+        } finally {
+          if (isMounted) setIsSaving(false);
+          setWrongAnswersThisSession([]);
         }
       };
       saveWrongAnswers();
-      setWrongAnswersThisSession([]);
     }
+    return () => { isMounted = false; };
   }, [gameState, wrongAnswersThisSession]);
 
   useEffect(() => {
@@ -689,9 +695,9 @@ export default function Home() {
                 <span>RESTART GAME</span>
               </button>
               {score < 10 && (
-                <button type="button" onClick={loadReviewList} className="arcade-btn arcade-btn-yellow group flex items-center justify-center gap-2">
-                  <BookOpen size={20} className="group-hover:animate-bounce" />
-                  <span>오답 바로 복습하기</span>
+                <button type="button" onClick={loadReviewList} disabled={isSaving} className="arcade-btn arcade-btn-yellow group flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                  <BookOpen size={20} className={!isSaving ? "group-hover:animate-bounce" : ""} />
+                  <span>{isSaving ? "오답 저장 중..." : "오답 바로 복습하기"}</span>
                 </button>
               )}
               <button type="button" onClick={() => setGameState("intro")} className="arcade-btn group flex items-center justify-center gap-2">
